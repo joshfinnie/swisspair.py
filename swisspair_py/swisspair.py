@@ -1,5 +1,7 @@
 from .__version__ import __version__
 
+from .storage.memory import InMemoryStorage
+
 
 class SwissPair:
 
@@ -10,16 +12,7 @@ class SwissPair:
     TIE_POINTS = 1.5
 
     def __init__(self):
-        self._players = []
-        self._pairings = {}
-
-    @property
-    def players(self):
-        return self._players
-
-    @property
-    def pairings(self):
-        return self._pairings
+        self.engine = InMemoryStorage()
 
     def __generate_player_object(self, player_name):
         return {
@@ -32,42 +25,36 @@ class SwissPair:
         }
 
     def reset_players(self):
-        self._players = []
+        self.engine.reset_players()
 
     def add_player(self, player_name):
         player = self.__generate_player_object(player_name)
-        self._players.append(player)
-
-    def __get_player_object_by_name(self, pn):
-        player = list(filter(lambda x: x["player_name"] == pn, self._players))
-        return player[0]
-
-    def remove_player(self, pn):
-        self._players = list(filter(lambda x: x["player_name"] != pn, self._players))
+        self.engine.add_player(player)
 
     def __bye_win(self, player):
         player["wins"] += 1
         player["points"] += self.WIN_POINTS
 
     def __get_opponent(self, player_name, opponents):
-        player = self.__get_player_object_by_name(player_name)
+        player = self.engine.get_player_by_name(player_name)
         for opponent in opponents:
             if opponent not in player["opponents"]:
                 return opponent
 
     def pair(self):
-        self._pairings = {}
+        pairings = self.engine.reset_pairings()
+        players = self.engine.players
         non_paired_player_names = [
-            x["player_name"] for x in sorted(self._players, key=lambda x: x["points"], reverse=True)
+            x["player_name"] for x in sorted(players, key=lambda x: x["points"], reverse=True)
         ]
         table = 1
         while len(non_paired_player_names):
             if len(non_paired_player_names) == 1:
-                self._pairings["bye"] = [
-                    self.__get_player_object_by_name(non_paired_player_names[0])
+                pairings["bye"] = [
+                    self.engine.get_player_by_name(non_paired_player_names[0])
                 ]
                 self.__bye_win(
-                    self.__get_player_object_by_name(non_paired_player_names[0])
+                    self.engine.get_player_by_name(non_paired_player_names[0])
                 )
                 non_paired_player_names.remove(non_paired_player_names[0])
                 continue
@@ -76,23 +63,24 @@ class SwissPair:
             player_2_name = self.__get_opponent(
                 player_1_name, non_paired_player_names[1:]
             )
-            self._pairings[f"table_{table}"] = [
-                self.__get_player_object_by_name(player_1_name),
-                self.__get_player_object_by_name(player_2_name),
+            pairings[f"table_{table}"] = [
+                self.engine.get_player_by_name(player_1_name),
+                self.engine.get_player_by_name(player_2_name),
             ]
             non_paired_player_names.remove(player_1_name)
             non_paired_player_names.remove(player_2_name)
 
             table += 1
 
-        return self._pairings
+        return pairings
 
     def __add_to_opponents_list(self, players):
         players[0]["opponents"].append(players[1]["player_name"])
         players[1]["opponents"].append(players[0]["player_name"])
 
     def __calc_winning_percentage(self, player_name):
-        player = next(filter(lambda x: x["player_name"] == player_name, self._players))
+        players = self.engine.players
+        player = next(filter(lambda x: x["player_name"] == player_name, players))
         return player["wins"] / len(player["opponents"])
 
     def __update_win_percentage(self, players):
@@ -108,24 +96,25 @@ class SwissPair:
         self.__update_win_percentage(players)
 
     def add_results(self, t):
+        pairings = self.engine.pairings
         table_id, player_1_results, player_2_results, tie = t
         if tie:
-            self._pairings[f"table_{table_id}"][0]["points"] += self.TIE_POINTS
-            self._pairings[f"table_{table_id}"][1]["points"] += self.TIE_POINTS
-            self.__add_to_opponents_list(self._pairings[f"table_{table_id}"])
-            return self._pairings[f"table_{table_id}"]
+            pairings[f"table_{table_id}"][0]["points"] += self.TIE_POINTS
+            pairings[f"table_{table_id}"][1]["points"] += self.TIE_POINTS
+            self.__add_to_opponents_list(pairings[f"table_{table_id}"])
+            return pairings[f"table_{table_id}"]
         if player_1_results > player_2_results:
-            self._pairings[f"table_{table_id}"][0]["points"] += self.WIN_POINTS
-            self._pairings[f"table_{table_id}"][1]["points"] += self.LOSS_POINTS
-            self.__add_to_opponents_list(self._pairings[f"table_{table_id}"])
-            self.__add_win(self._pairings[f"table_{table_id}"], 0)
-            return self._pairings[f"table_{table_id}"]
+            pairings[f"table_{table_id}"][0]["points"] += self.WIN_POINTS
+            pairings[f"table_{table_id}"][1]["points"] += self.LOSS_POINTS
+            self.__add_to_opponents_list(pairings[f"table_{table_id}"])
+            self.__add_win(pairings[f"table_{table_id}"], 0)
+            return pairings[f"table_{table_id}"]
         if player_1_results < player_2_results:
-            self._pairings[f"table_{table_id}"][0]["points"] += self.LOSS_POINTS
-            self._pairings[f"table_{table_id}"][1]["points"] += self.WIN_POINTS
-            self.__add_to_opponents_list(self._pairings[f"table_{table_id}"])
-            self.__add_win(self._pairings[f"table_{table_id}"], 1)
-            return self._pairings[f"table_{table_id}"]
+            pairings[f"table_{table_id}"][0]["points"] += self.LOSS_POINTS
+            pairings[f"table_{table_id}"][1]["points"] += self.WIN_POINTS
+            self.__add_to_opponents_list(pairings[f"table_{table_id}"])
+            self.__add_win(pairings[f"table_{table_id}"], 1)
+            return pairings[f"table_{table_id}"]
 
     def __update_owp(self, player):
         owp_total = 0
@@ -136,12 +125,13 @@ class SwissPair:
         return owp_total / len(player["opponents"])
 
     def finish_round(self):
-        for player in self._players:
+        players = self.engine.players
+        for player in players:
             player["owp"] = self.__update_owp(player)
-        return self._players
+        return players
 
     def get_results(self):
-        players = self._players
+        players = self.engine.players
         for player in players:
             del player["opponents"]
             del player["winning_percentage"]

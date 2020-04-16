@@ -13,21 +13,9 @@ class TestSwissPair(TestCase):
     def test_version(self):
         assert self.sp.VERSION == "0.1.0"
 
-    def test_default_players(self):
-        assert self.sp.players == []
-
-    def test_default_pairings(self):
-        assert self.sp.pairings == {}
-
     def test_adding_player(self):
         self.sp.add_player("aoeu")
-        assert self.sp.players[0]["player_name"] == "aoeu"
-
-    def test_removing_player(self):
-        self.sp.add_player("aoeu")
-        self.sp.add_player("hehe")
-        self.sp.remove_player("aoeu")
-        assert len(self.sp.players) == 1
+        assert self.sp.engine.players[0]["player_name"] == "aoeu"
 
     def test_pair_simple(self):
         self.sp.add_player("aoeu")
