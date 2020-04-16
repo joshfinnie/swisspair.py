@@ -13,4 +13,4 @@ jobs:
           python-version: '3.7'
       - run: pip install poetry
       - run: poetry install
-      - run: py.test tests/
+      - run: poetry run py.test tests/
