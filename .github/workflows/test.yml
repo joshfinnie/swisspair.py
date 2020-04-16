@@ -1,4 +1,4 @@
-name: tweetpng test
+name: swisspair.py test
 
 on: [push]
 
